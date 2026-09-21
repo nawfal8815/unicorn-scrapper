@@ -30,9 +30,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Write Firebase service account
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
         run: |
           mkdir -p backend
-          printf '%s' "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" > backend/firebase-service-account.json
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT_JSON" > backend/firebase-service-account.json
 
       - name: Run unicorns.lt scrape
         env:
