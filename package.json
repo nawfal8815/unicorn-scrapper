@@ -7,13 +7,16 @@
     "scrape": "node scraper/scrape.js",
     "scrape:jobs": "node --env-file=.env scraper/job-scraper.js",
     "scrape:external": "node --env-file=.env scraper/external-jobs-scraper.js",
-    "scrape:daily": "node --env-file=.env scraper/daily-runner.js"
+    "scrape:daily": "node --env-file=.env scraper/daily-runner.js",
+    "cv:seed-profiles": "node --env-file=.env cv-builder/seed-profiles.js",
+    "cv:generate": "node --env-file=.env cv-builder/generate.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "docx": "^9.7.1",
     "firebase-admin": "^13.0.2",
     "playwright": "^1.63.0"
   }

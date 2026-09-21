@@ -1,0 +1,55 @@
+name: Daily Scrape
+
+on:
+  schedule:
+    # Runs once a day at 22:00 UTC (~midnight Lithuania time, EET/EEST).
+    # GitHub Actions cron has no timezone support, so this is a fixed UTC approximation.
+    - cron: '0 22 * * *'
+  workflow_dispatch: {}
+
+concurrency:
+  group: daily-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Write Firebase service account
+        run: |
+          mkdir -p backend
+          printf '%s' "${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}" > backend/firebase-service-account.json
+
+      - name: Run unicorns.lt scrape
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scraper/scrape.js
+
+      - name: Run career-page job matching
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scraper/job-scraper.js
+
+      - name: Run external job boards
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node scraper/external-jobs-scraper.js
+
+      - name: Generate application CVs
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node cv-builder/generate.js

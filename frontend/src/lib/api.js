@@ -20,3 +20,17 @@ export async function apiFetch(path, token) {
 
   return res.json();
 }
+
+export async function fetchPdfBlob(path, token) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    cache: 'no-store'
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, body.error ?? `Request failed (${res.status})`);
+  }
+
+  return res.blob();
+}

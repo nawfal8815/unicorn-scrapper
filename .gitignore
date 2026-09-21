@@ -16,6 +16,11 @@ frontend/dist/
 .env
 .env.*
 
+# CVs (personal data — source of truth is the Firestore `profiles` collection)
+/*.pdf
+cv-builder/output/
+cv-builder/data/
+
 # OS / editor
 .DS_Store
 *.swp

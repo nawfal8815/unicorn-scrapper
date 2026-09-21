@@ -49,6 +49,7 @@ export default function Jobs() {
   const [keywordFilter, setKeywordFilter] = useState('all');
   const { progress, isActive } = useProgress('/api/jobs-progress');
   const { data: fetched, loading } = useApiData('/api/jobs-data');
+  const { data: applications } = useApiData('/api/applications');
   const data = fetched ?? EMPTY_DATA;
   const companies = data.companies ?? [];
 
@@ -189,7 +190,7 @@ export default function Jobs() {
           ) : (
             <div className="jobs-grid">
               {filtered.map((job, i) => (
-                <JobCard key={`${job.applyUrl}-${i}`} job={job} />
+                <JobCard key={`${job.applyUrl}-${i}`} job={job} application={applications?.[job.id]} />
               ))}
             </div>
           )}

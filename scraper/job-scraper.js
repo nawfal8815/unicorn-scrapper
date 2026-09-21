@@ -3,6 +3,7 @@ const { createProgressWriter } = require('./progress');
 const { getDb, writeDoc } = require('./firestore');
 const { matchAnchors } = require('./match');
 const { OPENAI_KEY, extractRequirementsFromPage } = require('./ai');
+const { jobId } = require('./job-id');
 
 const progress = createProgressWriter('jobs');
 
@@ -199,8 +200,10 @@ async function processCompany(page, company) {
     const subtitle = parts.length > 1 ? parts.slice(1).join(' · ').slice(0, 200) : null;
 
     jobs.push({
+      id: jobId(company.name, absolute),
       company: company.name,
       companyWebsite: company.website,
+      companyType: company.bucket,
       careersUrl,
       title,
       subtitle,

@@ -6,7 +6,8 @@ const ROOT = path.join(__dirname, '..');
 const PIPELINE = [
   'scraper/scrape.js',
   'scraper/job-scraper.js',
-  'scraper/external-jobs-scraper.js'
+  'scraper/external-jobs-scraper.js',
+  'cv-builder/generate.js'
 ];
 
 function runScript(scriptPath) {

@@ -770,12 +770,34 @@ tbody tr:hover td {
 }
 
 .job-company {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12.5px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--text);
   opacity: 0.8;
+}
+
+.company-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.company-type-badge.tone-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.company-type-badge.tone-warn {
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 
 .job-keyword-badge {
@@ -830,6 +852,58 @@ tbody tr:hover td {
 
 .job-expand-btn:hover {
   text-decoration: underline;
+}
+
+.job-application-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+
+.application-status-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.application-status-badge.tone-good {
+  background: var(--good-soft);
+  color: var(--good);
+}
+
+.application-status-badge.tone-neutral {
+  background: var(--border);
+  color: var(--text);
+}
+
+.job-cv-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.job-cv-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.job-cv-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.job-cv-error {
+  font-size: 11.5px;
+  color: var(--warn);
 }
 
 .job-card-footer {
