@@ -1,7 +1,8 @@
 const { chromium } = require('playwright');
-const { PHRASES, SHORT_CODES } = require('./keywords');
 const { createProgressWriter } = require('./progress');
 const { getDb, writeDoc } = require('./firestore');
+const { matchAnchors } = require('./match');
+const { OPENAI_KEY, extractRequirementsFromPage } = require('./ai');
 
 const progress = createProgressWriter('jobs');
 
@@ -9,7 +10,6 @@ const CONCURRENCY = Number(process.env.CONCURRENCY || 4);
 const COMPANY_TIMEOUT_MS = Number(process.env.COMPANY_TIMEOUT_MS || 60000);
 const NAV_TIMEOUT_MS = Number(process.env.NAV_TIMEOUT_MS || 20000);
 const MAX_JOBS_PER_COMPANY = 8;
-const OPENAI_KEY = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
 
 const CAREER_LINK_PATTERNS = [
   { regex: /career/i, score: 3 },
@@ -91,27 +91,6 @@ async function findCareersLink(page, baseUrl) {
   }
 }
 
-function matchKeywords(anchors) {
-  const results = [];
-
-  for (const { text, href } of anchors) {
-    if (!text || text.length < 3 || text.length > 150) continue;
-
-    const lower = text.toLowerCase();
-    let keyword = PHRASES.find(p => lower.includes(p.toLowerCase()));
-
-    if (!keyword) {
-      keyword = SHORT_CODES.find(code => new RegExp(`\\b${code}\\b`, 'i').test(text));
-    }
-
-    if (keyword) {
-      results.push({ text, href, keyword });
-    }
-  }
-
-  return results;
-}
-
 async function collectAnchors(page) {
   const anchors = [];
   const frames = page.frames();
@@ -130,72 +109,6 @@ async function collectAnchors(page) {
   }
 
   return anchors;
-}
-
-async function callOpenAI(jobText) {
-  if (!OPENAI_KEY) return null;
-
-  try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${OPENAI_KEY}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'Extract the requirements/qualifications from this job posting text as a ' +
-              'short JSON array of concise bullet strings (max 6 items, each under 15 words). ' +
-              'Respond with ONLY a JSON array, no prose, no markdown fences. ' +
-              'If the text is not a real job posting or has no clear requirements, respond with [].'
-          },
-          { role: 'user', content: jobText }
-        ],
-        temperature: 0.2,
-        max_tokens: 400
-      }),
-      signal: AbortSignal.timeout(15000)
-    });
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
-    if (!content) return null;
-
-    const cleaned = content
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/, '')
-      .replace(/```$/, '')
-      .trim();
-
-    const parsed = JSON.parse(cleaned);
-    return Array.isArray(parsed) && parsed.length ? parsed.slice(0, 6) : null;
-  } catch {
-    return null;
-  }
-}
-
-async function extractRequirements(page, url) {
-  if (!OPENAI_KEY) return null;
-
-  const ok = await page
-    .goto(url, { waitUntil: 'domcontentloaded', timeout: 8000 })
-    .then(() => true)
-    .catch(() => false);
-
-  if (!ok) return null;
-
-  const text = await page.evaluate(() => document.body?.innerText ?? '').catch(() => '');
-  const trimmed = text.replace(/\s+/g, ' ').trim().slice(0, 4000);
-
-  if (trimmed.length < 100) return null;
-
-  return callOpenAI(trimmed);
 }
 
 async function goWithRetry(page, url, { timeout = NAV_TIMEOUT_MS, retries = 1 } = {}) {
@@ -251,7 +164,7 @@ async function processCompany(page, company) {
   await page.waitForTimeout(600);
 
   const anchors = await collectAnchors(page);
-  const matched = matchKeywords(anchors);
+  const matched = matchAnchors(anchors);
   const seen = new Set();
 
   for (const m of matched) {
@@ -298,7 +211,7 @@ async function processCompany(page, company) {
   }
 
   for (const job of jobs) {
-    job.requirements = await extractRequirements(page, job.applyUrl).catch(() => null);
+    job.requirements = await extractRequirementsFromPage(page, job.applyUrl).catch(() => null);
   }
 
   return { careersUrl, jobs, websiteReachable: true };
@@ -478,7 +391,12 @@ async function run() {
     percent: 100
   });
 
-  await writeDoc('data', 'jobs', output);
+  // Safety: never let a LIMIT'd test run clobber the real production doc.
+  const docId = process.env.LIMIT ? 'jobs-test' : 'jobs';
+  await writeDoc('data', docId, output);
+  if (docId !== 'jobs') {
+    console.log(`(LIMIT set - wrote to data/${docId} instead of data/jobs)`);
+  }
 
   console.log('\nSummary:');
   console.log(`Companies scanned: ${companies.length}`);

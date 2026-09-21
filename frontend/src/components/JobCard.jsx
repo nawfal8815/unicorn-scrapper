@@ -35,11 +35,11 @@ export default function JobCard({ job }) {
       <div className="job-card-footer">
         <a
           className="job-careers-link"
-          href={job.careersUrl}
+          href={job.careersUrl ?? job.applyUrl}
           target="_blank"
           rel="noreferrer noopener"
         >
-          {hostnameFromUrl(job.careersUrl)}
+          {hostnameFromUrl(job.careersUrl ?? job.applyUrl)}
         </a>
         <a className="job-apply-btn" href={job.applyUrl} target="_blank" rel="noreferrer noopener">
           Apply

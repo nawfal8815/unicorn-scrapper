@@ -290,7 +290,12 @@ async function getCompanyWebsite(page) {
       failedCompanies
     };
 
-    await writeDoc('data', 'scraped', output);
+    // Safety: never let a LIMIT'd test run clobber the real production doc.
+    const docId = process.env.LIMIT ? 'scraped-test' : 'scraped';
+    await writeDoc('data', docId, output);
+    if (docId !== 'scraped') {
+      console.log(`(LIMIT set - wrote to data/${docId} instead of data/scraped)`);
+    }
 
     progress.write({
       status: 'done',

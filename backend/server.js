@@ -84,8 +84,25 @@ app.get(
   })
 );
 
+app.get(
+  '/api/external-jobs',
+  requireAuth,
+  serveDoc('data', 'external-jobs', {
+    scrapedAt: null,
+    keywordsUsed: 0,
+    aiRequirementsEnabled: false,
+    totalMatches: 0,
+    sources: {
+      cvbankas: { jobsFound: 0, jobs: [] },
+      cvlt: { jobsFound: 0, jobs: [] },
+      uzt: { jobsFound: 0, jobs: [] }
+    }
+  })
+);
+
 app.get('/api/scrape-progress', requireAuth, serveDoc('progress', 'scrape'));
 app.get('/api/jobs-progress', requireAuth, serveDoc('progress', 'jobs'));
+app.get('/api/external-jobs-progress', requireAuth, serveDoc('progress', 'external-jobs'));
 
 app.listen(PORT, () => {
   console.log(`Backend listening on :${PORT}`);

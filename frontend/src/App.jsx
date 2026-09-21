@@ -4,6 +4,7 @@ import AuthGate from './components/AuthGate';
 import NavBar from './components/NavBar';
 import Dashboard from './pages/Dashboard';
 import Jobs from './pages/Jobs';
+import ExternalJobs from './pages/ExternalJobs';
 import './App.css';
 
 export default function App() {
@@ -15,6 +16,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
+            <Route path="/external-jobs" element={<ExternalJobs />} />
           </Routes>
         </AuthGate>
       </BrowserRouter>

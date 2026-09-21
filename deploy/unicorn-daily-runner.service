@@ -1,0 +1,13 @@
+[Unit]
+Description=unicorn-scrapper daily pipeline (unicorns.lt + CVbankas + CV.lt + Uzimtumo tarnyba)
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/naoufal/Documents/unicorn-scrapper
+ExecStart=/usr/bin/node --env-file=.env scraper/daily-runner.js
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target
