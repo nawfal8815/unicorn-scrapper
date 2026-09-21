@@ -1,0 +1,24 @@
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+scraper/playwright-error.png
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Secrets
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
