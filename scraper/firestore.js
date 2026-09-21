@@ -8,6 +8,7 @@ const SERVICE_ACCOUNT_PATH =
 const STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || 'baltic-job-radar.firebasestorage.app';
 
 let app;
+let dbConfigured = false;
 
 function getApp() {
   if (!app) {
@@ -21,7 +22,16 @@ function getApp() {
 
 function getDb() {
   getApp();
-  return admin.firestore();
+  const db = admin.firestore();
+
+  // The default gRPC transport can hang silently (no error, no timeout) on some
+  // CI/cloud network setups. REST transport doesn't have that failure mode.
+  if (!dbConfigured) {
+    db.settings({ preferRest: true });
+    dbConfigured = true;
+  }
+
+  return db;
 }
 
 function getBucket() {
