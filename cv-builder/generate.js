@@ -19,10 +19,13 @@ async function generateForJobAndPerson(job, id, personId) {
     jobTitle: job.title,
     applyUrl: job.applyUrl,
     careersUrl: job.careersUrl ?? null,
+    applicationEmail: job.applicationEmail ?? null,
+    requirements: job.requirements ?? [],
     source: job.sourceLabel ?? 'career-page',
     cvGenerated: true,
     applied: false,
     appliedAt: null,
+    emailSent: false,
     pdfBuildCount: 0
   };
 

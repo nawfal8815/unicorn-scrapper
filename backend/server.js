@@ -261,6 +261,38 @@ app.post('/api/gmail/disconnect', requireAuth, requirePerson, async (req, res) =
   }
 });
 
+app.get('/api/notifications', requireAuth, requirePerson, async (req, res) => {
+  try {
+    // Sorted in-memory rather than via .orderBy() to avoid needing a composite Firestore
+    // index for this personId + createdAt combination; notification volume is small.
+    const snap = await db.collection('notifications').where('personId', '==', req.personId).get();
+    const notifications = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+      .slice(0, 50);
+
+    res.json(notifications);
+  } catch (err) {
+    console.error('Failed to read notifications:', err.message);
+    res.status(502).json({ error: 'Data store unavailable' });
+  }
+});
+
+app.post('/api/notifications/:id/read', requireAuth, requirePerson, async (req, res) => {
+  try {
+    const ref = db.collection('notifications').doc(req.params.id);
+    const snap = await ref.get();
+    if (!snap.exists || snap.data().personId !== req.personId) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    await ref.update({ read: true });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to mark notification read:', err.message);
+    res.status(502).json({ error: 'Data store unavailable' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`Backend listening on :${PORT}`);
 });

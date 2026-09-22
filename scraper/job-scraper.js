@@ -112,6 +112,25 @@ async function collectAnchors(page) {
   return anchors;
 }
 
+const EMAIL_PATTERN = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+const GENERIC_EMAIL_HINTS = /career|job|hr|recruit|talent|apply|cv/i;
+
+// Best-effort: a mailto: link (or a visible address) on the careers page, preferring
+// one that looks HR/careers-related over a generic contact address if both exist.
+function pickApplicationEmail(anchors, pageText) {
+  const mailtoEmails = anchors
+    .filter(a => a.href.startsWith('mailto:'))
+    .map(a => a.href.replace('mailto:', '').split('?')[0].trim())
+    .filter(Boolean);
+
+  const preferred = mailtoEmails.find(e => GENERIC_EMAIL_HINTS.test(e));
+  if (preferred) return preferred;
+  if (mailtoEmails.length) return mailtoEmails[0];
+
+  const textMatch = pageText.match(EMAIL_PATTERN);
+  return textMatch ? textMatch[0] : null;
+}
+
 async function goWithRetry(page, url, { timeout = NAV_TIMEOUT_MS, retries = 1 } = {}) {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -168,6 +187,9 @@ async function processCompany(page, company) {
   const matched = matchAnchors(anchors);
   const seen = new Set();
 
+  const pageText = await page.evaluate(() => document.body?.innerText ?? '').catch(() => '');
+  const applicationEmail = pickApplicationEmail(anchors, pageText);
+
   for (const m of matched) {
     if (jobs.length >= MAX_JOBS_PER_COMPANY) continue;
 
@@ -209,6 +231,7 @@ async function processCompany(page, company) {
       subtitle,
       applyUrl: absolute,
       matchedKeyword: m.keyword,
+      applicationEmail,
       requirements: null
     });
   }

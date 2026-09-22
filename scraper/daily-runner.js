@@ -7,7 +7,9 @@ const PIPELINE = [
   'scraper/scrape.js',
   'scraper/job-scraper.js',
   'scraper/external-jobs-scraper.js',
-  'cv-builder/generate.js'
+  'cv-builder/generate.js',
+  'cv-builder/apply.js',
+  'cv-builder/inbox.js'
 ];
 
 function runScript(scriptPath) {
