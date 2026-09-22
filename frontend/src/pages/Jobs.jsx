@@ -8,6 +8,7 @@ import useProgress from '../hooks/useProgress';
 import useApiData from '../hooks/useApiData';
 import { formatTimestamp } from '../utils/format';
 import { jobApplicationProps } from '../utils/applications';
+import { getExperienceTier, TIER_META } from '../utils/experienceTier';
 
 const EMPTY_DATA = {
   scrapedAt: null,
@@ -48,6 +49,7 @@ export default function Jobs() {
   const [view, setView] = useState('matches');
   const [search, setSearch] = useState('');
   const [keywordFilter, setKeywordFilter] = useState('all');
+  const [tierFilter, setTierFilter] = useState('all');
   const { progress, isActive } = useProgress('/api/jobs-progress');
   const { data: fetched, loading } = useApiData('/api/jobs-data');
   const { data: applications } = useApiData('/api/applications');
@@ -64,6 +66,7 @@ export default function Jobs() {
 
     return data.jobs.filter(job => {
       if (keywordFilter !== 'all' && job.matchedKeyword !== keywordFilter) return false;
+      if (tierFilter !== 'all' && getExperienceTier(job) !== Number(tierFilter)) return false;
       if (!q) return true;
       return (
         job.company.toLowerCase().includes(q) ||
@@ -71,7 +74,7 @@ export default function Jobs() {
         job.matchedKeyword.toLowerCase().includes(q)
       );
     });
-  }, [data.jobs, search, keywordFilter]);
+  }, [data.jobs, search, keywordFilter, tierFilter]);
 
   if (loading && !fetched) {
     return (
@@ -173,6 +176,19 @@ export default function Jobs() {
               {keywords.map(k => (
                 <option key={k} value={k}>
                   {k === 'all' ? 'All keywords' : k}
+                </option>
+              ))}
+            </select>
+
+            <select
+              className="keyword-select"
+              value={tierFilter}
+              onChange={e => setTierFilter(e.target.value)}
+            >
+              <option value="all">All tiers</option>
+              {Object.entries(TIER_META).map(([tier, meta]) => (
+                <option key={tier} value={tier}>
+                  {meta.label}
                 </option>
               ))}
             </select>

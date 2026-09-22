@@ -3,6 +3,7 @@ import { hostnameFromUrl } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 import { fetchPdfBlob, ApiError } from '../lib/api';
 import ApplicationTimeline from './ApplicationTimeline';
+import { getExperienceTier, TIER_META } from '../utils/experienceTier';
 
 const COMPANY_TYPE_META = {
   perfectMatches: { label: 'Perfect match', tone: 'good' },
@@ -54,6 +55,8 @@ export default function JobCard({ job, application, applicationsByPerson }) {
   const requirements = job.requirements ?? [];
   const visibleRequirements = expanded ? requirements : requirements.slice(0, 3);
   const companyType = COMPANY_TYPE_META[job.companyType];
+  const tier = getExperienceTier(job);
+  const tierMeta = TIER_META[tier];
 
   const personRows = applicationsByPerson
     ? Object.entries(applicationsByPerson).filter(([, app]) => app?.cvGenerated)
@@ -72,7 +75,10 @@ export default function JobCard({ job, application, applicationsByPerson }) {
             </span>
           )}
         </span>
-        <span className="job-keyword-badge">{job.matchedKeyword}</span>
+        <span className="job-badges">
+          <span className={`tier-badge tone-${tierMeta.tone}`}>{tierMeta.label}</span>
+          <span className="job-keyword-badge">{job.matchedKeyword}</span>
+        </span>
       </div>
 
       <h3 className="job-title">{job.title}</h3>

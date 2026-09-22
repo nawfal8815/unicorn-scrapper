@@ -5,6 +5,7 @@ import useProgress from '../hooks/useProgress';
 import useApiData from '../hooks/useApiData';
 import { formatTimestamp } from '../utils/format';
 import { jobApplicationProps } from '../utils/applications';
+import { getExperienceTier, TIER_META } from '../utils/experienceTier';
 
 const EMPTY_DATA = {
   scrapedAt: null,
@@ -27,6 +28,7 @@ const SOURCE_TABS = [
 export default function ExternalJobs() {
   const [source, setSource] = useState('cvbankas');
   const [search, setSearch] = useState('');
+  const [tierFilter, setTierFilter] = useState('all');
   const { progress, isActive } = useProgress('/api/external-jobs-progress');
   const { data: fetched, loading } = useApiData('/api/external-jobs');
   const { data: applications } = useApiData('/api/applications');
@@ -36,14 +38,16 @@ export default function ExternalJobs() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return jobs;
-    return jobs.filter(
-      job =>
+    return jobs.filter(job => {
+      if (tierFilter !== 'all' && getExperienceTier(job) !== Number(tierFilter)) return false;
+      if (!q) return true;
+      return (
         job.title.toLowerCase().includes(q) ||
         (job.company ?? '').toLowerCase().includes(q) ||
         job.matchedKeyword.toLowerCase().includes(q)
-    );
-  }, [jobs, search]);
+      );
+    });
+  }, [jobs, search, tierFilter]);
 
   if (loading && !fetched) {
     return (
@@ -125,6 +129,16 @@ export default function ExternalJobs() {
             placeholder="Search by title, company or keyword…"
           />
         </div>
+
+        <select className="keyword-select" value={tierFilter} onChange={e => setTierFilter(e.target.value)}>
+          <option value="all">All tiers</option>
+          {Object.entries(TIER_META).map(([tier, meta]) => (
+            <option key={tier} value={tier}>
+              {meta.label}
+            </option>
+          ))}
+        </select>
+
         <span className="row-count">
           {filtered.length} {filtered.length === 1 ? 'job' : 'jobs'}
         </span>
