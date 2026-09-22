@@ -18,7 +18,8 @@ async function generateForJobAndPerson(job, id, personId) {
     company: job.company,
     jobTitle: job.title,
     applyUrl: job.applyUrl,
-    careersUrl: job.careersUrl,
+    careersUrl: job.careersUrl ?? null,
+    source: job.sourceLabel ?? 'career-page',
     cvGenerated: true,
     applied: false,
     appliedAt: null,
@@ -41,13 +42,39 @@ async function generateForJobAndPerson(job, id, personId) {
   return { skipped: false, cvType: 'tailored', addedSkills };
 }
 
+async function loadAllJobs() {
+  const db = getDb();
+  const [jobsSnap, externalSnap] = await Promise.all([
+    db.collection('data').doc('jobs').get(),
+    db.collection('data').doc('external-jobs').get()
+  ]);
+
+  const jobs = [];
+
+  if (jobsSnap.exists) {
+    for (const job of jobsSnap.data().jobs || []) {
+      jobs.push({ ...job, sourceLabel: 'career-page' });
+    }
+  }
+
+  if (externalSnap.exists) {
+    const sources = externalSnap.data().sources || {};
+    for (const [sourceLabel, source] of Object.entries(sources)) {
+      for (const job of source.jobs || []) {
+        jobs.push({ ...job, sourceLabel });
+      }
+    }
+  }
+
+  return jobs;
+}
+
 async function run() {
   const limit = process.env.LIMIT ? Number(process.env.LIMIT) : Infinity;
-  const snap = await getDb().collection('data').doc('jobs').get();
-  if (!snap.exists) throw new Error('No data/jobs doc found in Firestore.');
+  const jobs = await loadAllJobs();
 
-  const jobs = snap.data().jobs || [];
-  console.log(`Loaded ${jobs.length} jobs.`);
+  if (jobs.length === 0) throw new Error('No jobs found in data/jobs or data/external-jobs.');
+  console.log(`Loaded ${jobs.length} jobs (career pages + external boards).`);
 
   let processed = 0;
   let generated = 0;
@@ -55,17 +82,17 @@ async function run() {
 
   for (const job of jobs) {
     if (processed >= limit) break;
-    const id = job.id || jobId(job.company, job.applyUrl);
+    const id = job.id || jobId(job.company ?? job.sourceLabel, job.applyUrl);
 
     for (const personId of PEOPLE) {
       const result = await generateForJobAndPerson(job, id, personId);
       if (result.skipped) {
         skipped++;
-        console.log(`[skip] ${job.company} / ${job.title} (${personId}) — ${result.reason}`);
+        console.log(`[skip] (${job.sourceLabel}) ${job.company} / ${job.title} (${personId}) — ${result.reason}`);
       } else {
         generated++;
         console.log(
-          `[generated] ${job.company} / ${job.title} (${personId}) — ${result.cvType}` +
+          `[generated] (${job.sourceLabel}) ${job.company} / ${job.title} (${personId}) — ${result.cvType}` +
           (result.addedSkills.length ? ` — added: ${result.addedSkills.join(', ')}` : '')
         );
       }

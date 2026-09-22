@@ -32,4 +32,21 @@ async function requireAuth(req, res, next) {
   next();
 }
 
-module.exports = { requireAuth, isEmailAllowed, ALLOWED_EMAILS };
+// For read-only endpoints that guests may view without signing in. If a valid,
+// allowed bearer token is present, behaves like requireAuth (req.user set). If no
+// token is present at all, lets the request through as a guest (req.user stays
+// undefined). An invalid/expired/disallowed token is still rejected, same as
+// requireAuth - a bad token isn't silently treated as "no token".
+async function optionalAuth(req, res, next) {
+  const header = req.headers.authorization ?? '';
+  const match = header.match(/^Bearer (.+)$/);
+
+  if (!match) {
+    req.isGuest = true;
+    return next();
+  }
+
+  return requireAuth(req, res, next);
+}
+
+module.exports = { requireAuth, optionalAuth, isEmailAllowed, ALLOWED_EMAILS };

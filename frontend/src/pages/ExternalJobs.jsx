@@ -4,6 +4,7 @@ import ExternalJobsProgressPanel from '../components/ExternalJobsProgressPanel';
 import useProgress from '../hooks/useProgress';
 import useApiData from '../hooks/useApiData';
 import { formatTimestamp } from '../utils/format';
+import { jobApplicationProps } from '../utils/applications';
 
 const EMPTY_DATA = {
   scrapedAt: null,
@@ -28,6 +29,7 @@ export default function ExternalJobs() {
   const [search, setSearch] = useState('');
   const { progress, isActive } = useProgress('/api/external-jobs-progress');
   const { data: fetched, loading } = useApiData('/api/external-jobs');
+  const { data: applications } = useApiData('/api/applications');
   const data = fetched ?? EMPTY_DATA;
 
   const jobs = useMemo(() => data.sources?.[source]?.jobs ?? [], [data, source]);
@@ -137,7 +139,7 @@ export default function ExternalJobs() {
       ) : (
         <div className="jobs-grid">
           {filtered.map((job, i) => (
-            <JobCard key={`${job.applyUrl}-${i}`} job={job} />
+            <JobCard key={`${job.applyUrl}-${i}`} job={job} {...jobApplicationProps(applications, job.id)} />
           ))}
         </div>
       )}

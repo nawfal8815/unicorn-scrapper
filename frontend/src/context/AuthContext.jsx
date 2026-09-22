@@ -4,10 +4,19 @@ import { auth, googleProvider } from '../firebase';
 
 const AuthContext = createContext(null);
 
+function readStoredGuestMode() {
+  try {
+    return localStorage.getItem('bjr-guest-mode') === '1';
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
   const [authError, setAuthError] = useState(null);
+  const [guestMode, setGuestMode] = useState(readStoredGuestMode);
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => {
@@ -15,6 +24,24 @@ export function AuthProvider({ children }) {
       setInitializing(false);
     });
   }, []);
+
+  function enterGuestMode() {
+    setGuestMode(true);
+    try {
+      localStorage.setItem('bjr-guest-mode', '1');
+    } catch {
+      // per-viewer convenience only - fine if storage is unavailable
+    }
+  }
+
+  function exitGuestMode() {
+    setGuestMode(false);
+    try {
+      localStorage.removeItem('bjr-guest-mode');
+    } catch {
+      // ignore
+    }
+  }
 
   async function signInWithGoogle() {
     setAuthError(null);
@@ -36,7 +63,17 @@ export function AuthProvider({ children }) {
     return auth.currentUser.getIdToken(forceRefresh);
   }
 
-  const value = { user, initializing, authError, signInWithGoogle, signOutUser, getIdToken };
+  const value = {
+    user,
+    initializing,
+    authError,
+    signInWithGoogle,
+    signOutUser,
+    getIdToken,
+    guestMode,
+    enterGuestMode,
+    exitGuestMode
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

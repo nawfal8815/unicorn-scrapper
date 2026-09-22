@@ -6,6 +6,7 @@ const { extractRequirementsFromPage, OPENAI_KEY } = require('./ai');
 const { scrapeCvbankas } = require('./sites/cvbankas');
 const { scrapeCvLt } = require('./sites/cvlt');
 const { scrapeUzt } = require('./sites/uzt');
+const { jobId } = require('./job-id');
 
 const progress = createProgressWriter('external-jobs');
 const STAGES = ['cvbankas', 'cvlt', 'uzt', 'requirements'];
@@ -126,6 +127,10 @@ async function run() {
   await browser.close();
 
   const totalMatches = cvbankasJobs.length + cvltJobs.length + uztJobs.length;
+
+  for (const job of [...cvbankasJobs, ...cvltJobs, ...uztJobs]) {
+    job.id = jobId(job.company ?? job.source, job.applyUrl);
+  }
 
   const output = {
     scrapedAt: new Date().toISOString(),

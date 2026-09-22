@@ -4,11 +4,16 @@ import { apiFetch, ApiError } from '../lib/api';
 import Login from '../pages/Login';
 
 export default function AuthGate({ children }) {
-  const { user, initializing, getIdToken } = useAuth();
+  const { user, initializing, getIdToken, guestMode } = useAuth();
   const [status, setStatus] = useState('checking'); // checking | authorized | denied | error
 
   useEffect(() => {
     if (initializing) return;
+
+    if (guestMode) {
+      setStatus('authorized');
+      return;
+    }
 
     if (!user) {
       setStatus('idle');
@@ -36,7 +41,7 @@ export default function AuthGate({ children }) {
     return () => {
       cancelled = true;
     };
-  }, [user, initializing, getIdToken]);
+  }, [user, initializing, getIdToken, guestMode]);
 
   if (initializing || status === 'checking') {
     return (
@@ -46,7 +51,7 @@ export default function AuthGate({ children }) {
     );
   }
 
-  if (!user || status === 'idle') {
+  if (!guestMode && (!user || status === 'idle')) {
     return <Login />;
   }
 

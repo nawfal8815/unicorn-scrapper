@@ -10,20 +10,21 @@ const COMPANY_TYPE_META = {
   goodStartups: { label: 'Good startup', tone: 'good' }
 };
 
-export default function JobCard({ job, application }) {
-  const [expanded, setExpanded] = useState(false);
+const PERSON_LABELS = { naoufal: 'Naoufal', seif: 'Seif' };
+
+function PersonApplicationRow({ jobId, personId, application, showLabel }) {
   const [cvState, setCvState] = useState('idle'); // idle | loading | error
-  const { getIdToken } = useAuth();
-  const requirements = job.requirements ?? [];
-  const visibleRequirements = expanded ? requirements : requirements.slice(0, 3);
-  const companyType = COMPANY_TYPE_META[job.companyType];
+  const { getIdToken, user } = useAuth();
 
   async function handleViewCv() {
-    if (!job.id) return;
+    if (!jobId) return;
     setCvState('loading');
     try {
-      const token = await getIdToken();
-      const blob = await fetchPdfBlob(`/api/applications/${job.id}/cv-pdf`, token);
+      const token = user ? await getIdToken() : null;
+      const path = user
+        ? `/api/applications/${jobId}/cv-pdf`
+        : `/api/applications/${jobId}/${personId}/cv-pdf`;
+      const blob = await fetchPdfBlob(path, token);
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener');
       setTimeout(() => URL.revokeObjectURL(url), 60000);
@@ -33,6 +34,32 @@ export default function JobCard({ job, application }) {
       console.error('Failed to load generated CV:', err instanceof ApiError ? err.message : err);
     }
   }
+
+  return (
+    <div className="job-application-row">
+      {showLabel && <span className="job-application-person">{PERSON_LABELS[personId] ?? personId}</span>}
+      <ApplicationTimeline application={application} />
+      <div className="job-cv-row">
+        <button type="button" className="job-cv-btn" onClick={handleViewCv} disabled={cvState === 'loading'}>
+          {cvState === 'loading' ? 'Building…' : 'View generated CV'}
+        </button>
+        {cvState === 'error' && <span className="job-cv-error">Couldn't load CV, try again.</span>}
+      </div>
+    </div>
+  );
+}
+
+export default function JobCard({ job, application, applicationsByPerson }) {
+  const [expanded, setExpanded] = useState(false);
+  const requirements = job.requirements ?? [];
+  const visibleRequirements = expanded ? requirements : requirements.slice(0, 3);
+  const companyType = COMPANY_TYPE_META[job.companyType];
+
+  const personRows = applicationsByPerson
+    ? Object.entries(applicationsByPerson).filter(([, app]) => app?.cvGenerated)
+    : application?.cvGenerated
+      ? [[null, application]]
+      : [];
 
   return (
     <article className="job-card">
@@ -67,22 +94,15 @@ export default function JobCard({ job, application }) {
         </button>
       )}
 
-      {application?.cvGenerated && (
-        <div className="job-application-row">
-          <ApplicationTimeline application={application} />
-          <div className="job-cv-row">
-            <button
-              type="button"
-              className="job-cv-btn"
-              onClick={handleViewCv}
-              disabled={cvState === 'loading' || !job.id}
-            >
-              {cvState === 'loading' ? 'Building…' : 'View generated CV'}
-            </button>
-            {cvState === 'error' && <span className="job-cv-error">Couldn't load CV, try again.</span>}
-          </div>
-        </div>
-      )}
+      {personRows.map(([personId, app]) => (
+        <PersonApplicationRow
+          key={personId ?? 'self'}
+          jobId={job.id}
+          personId={personId}
+          application={app}
+          showLabel={Boolean(applicationsByPerson)}
+        />
+      ))}
 
       <div className="job-card-footer">
         <a
