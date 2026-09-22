@@ -11,6 +11,23 @@ const progress = createProgressWriter('generate');
 async function generateForJobAndPerson(job, id, personId) {
   const existing = await getApplication(id, personId);
   if (existing) {
+    // The CV itself is never regenerated (no need to re-run AI), but cheap fields that
+    // weren't extractable on an earlier scrape - most importantly applicationEmail, which
+    // apply.js needs to actually send anything - should still get backfilled when a fresher
+    // scrape finds them, rather than staying null forever just because a record already exists.
+    const freshEmail = job.applicationEmail ?? null;
+    const freshRequirements = job.requirements ?? [];
+    const emailNewlyFound = !existing.applicationEmail && freshEmail;
+    const requirementsNewlyFound = (!existing.requirements || existing.requirements.length === 0) && freshRequirements.length > 0;
+
+    if (emailNewlyFound || requirementsNewlyFound) {
+      const patch = {};
+      if (emailNewlyFound) patch.applicationEmail = freshEmail;
+      if (requirementsNewlyFound) patch.requirements = freshRequirements;
+      await setApplication(id, personId, patch);
+      return { skipped: true, reason: 'already-generated', backfilled: Object.keys(patch) };
+    }
+
     return { skipped: true, reason: existing.applied ? 'already-applied' : 'already-generated' };
   }
 
@@ -105,7 +122,8 @@ async function run() {
       const result = await generateForJobAndPerson(job, id, personId);
       if (result.skipped) {
         skipped++;
-        console.log(`[skip] (${job.sourceLabel}) ${job.company} / ${job.title} (${personId}) — ${result.reason}`);
+        const backfillNote = result.backfilled ? ` — backfilled: ${result.backfilled.join(', ')}` : '';
+        console.log(`[skip] (${job.sourceLabel}) ${job.company} / ${job.title} (${personId}) — ${result.reason}${backfillNote}`);
       } else {
         generated++;
         console.log(
