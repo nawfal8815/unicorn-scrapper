@@ -7,7 +7,11 @@ const MAX_PAGES = process.env.LIMIT ? 3 : 90; // ~3990 listings / 50 per page
 const MAX_MATCHES = process.env.LIMIT ? 5 : 150; // safety cap on detail-page clicks
 
 async function dismissCookieBanner(page) {
-  const btn = await page.$('button:has-text("Allow all cookies")');
+  // The banner's own text is Lithuanian ("Leisti visus slapukus" = "Allow all cookies"),
+  // not English - the English selector never matched, so the banner stayed on screen and
+  // silently intercepted every later click (page-size select, pagination "next"), which is
+  // why this scraper only ever got through page 1.
+  const btn = await page.$('button:has-text("Leisti visus slapukus")');
   if (btn) await btn.click().catch(() => {});
 }
 
