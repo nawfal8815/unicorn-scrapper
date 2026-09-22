@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { hostnameFromUrl } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
 import { fetchPdfBlob, ApiError } from '../lib/api';
+import ApplicationTimeline from './ApplicationTimeline';
 
 const COMPANY_TYPE_META = {
   perfectMatches: { label: 'Perfect match', tone: 'good' },
@@ -68,18 +69,18 @@ export default function JobCard({ job, application }) {
 
       {application?.cvGenerated && (
         <div className="job-application-row">
-          <span className={`application-status-badge ${application.applied ? 'tone-good' : 'tone-neutral'}`}>
-            {application.applied ? 'Applied' : 'CV ready'}
-          </span>
-          <button
-            type="button"
-            className="job-cv-btn"
-            onClick={handleViewCv}
-            disabled={cvState === 'loading' || !job.id}
-          >
-            {cvState === 'loading' ? 'Building…' : 'View generated CV'}
-          </button>
-          {cvState === 'error' && <span className="job-cv-error">Couldn't load CV, try again.</span>}
+          <ApplicationTimeline application={application} />
+          <div className="job-cv-row">
+            <button
+              type="button"
+              className="job-cv-btn"
+              onClick={handleViewCv}
+              disabled={cvState === 'loading' || !job.id}
+            >
+              {cvState === 'loading' ? 'Building…' : 'View generated CV'}
+            </button>
+            {cvState === 'error' && <span className="job-cv-error">Couldn't load CV, try again.</span>}
+          </div>
         </div>
       )}
 
