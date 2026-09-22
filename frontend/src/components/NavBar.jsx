@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import GmailConnectButton from './GmailConnectButton';
 
 export default function NavBar() {
   const { user, signOutUser } = useAuth();
@@ -24,6 +25,7 @@ export default function NavBar() {
         </nav>
         {user && (
           <div className="nav-user">
+            <GmailConnectButton />
             {user.photoURL && <img className="nav-avatar" src={user.photoURL} alt="" />}
             <span className="nav-email">{user.email}</span>
             <button className="link-btn" onClick={signOutUser}>

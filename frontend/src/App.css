@@ -613,6 +613,36 @@ tbody tr:hover td {
   text-decoration: underline;
 }
 
+.gmail-connect-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.gmail-connect-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.gmail-connect-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.gmail-connect-status.connected {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--good-soft);
+  color: var(--good);
+  white-space: nowrap;
+}
+
 /* Auth: loading spinner */
 
 .auth-loading {

@@ -9,8 +9,11 @@ const { requireAuth } = require('./middleware/auth');
 const { personIdForEmail } = require('./people');
 const { renderCvToDocxBuffer } = require('./cv/render');
 const { docxBufferToPdfBuffer } = require('./cv/pdf');
+const gmailOAuth = require('./gmail/oauth');
+const gmailStore = require('./gmail/store');
 
 const MAX_PDF_BUILDS_PER_APPLICATION = 15;
+const FRONTEND_URL = 'https://jobs.naoufal-tb.online';
 
 const PORT = process.env.PORT || 3001;
 
@@ -170,6 +173,64 @@ app.get('/api/applications/:jobId/cv-pdf', requireAuth, requirePerson, async (re
   } catch (err) {
     console.error('Failed to build CV PDF:', err.message);
     res.status(500).json({ error: 'Failed to build CV' });
+  }
+});
+
+app.get('/api/gmail/status', requireAuth, requirePerson, async (req, res) => {
+  try {
+    const connection = await gmailStore.getConnection(req.personId);
+    res.json({
+      connected: Boolean(connection),
+      email: connection?.email ?? null,
+      connectedAt: connection?.connectedAt ?? null
+    });
+  } catch (err) {
+    console.error('Failed to read Gmail connection status:', err.message);
+    res.status(502).json({ error: 'Data store unavailable' });
+  }
+});
+
+// Returns the auth URL rather than redirecting directly, since this call needs the
+// Bearer token header (to know who's connecting) - a plain link click can't send one.
+// The frontend fetches this, then navigates the browser to the returned URL itself.
+app.get('/api/gmail/connect-url', requireAuth, requirePerson, (req, res) => {
+  res.json({ url: gmailOAuth.buildAuthUrl(req.personId) });
+});
+
+// Google redirects here directly (no Authorization header) - the person is identified
+// by `state`, which we set server-side in /api/gmail/connect from the authenticated
+// session, so it isn't attacker-controlled.
+app.get('/api/gmail/callback', async (req, res) => {
+  const { code, state: personId, error } = req.query;
+
+  if (error || !code || !personId) {
+    return res.redirect(`${FRONTEND_URL}/?gmail=error`);
+  }
+
+  try {
+    const tokens = await gmailOAuth.exchangeCodeForTokens(code);
+    const email = await gmailOAuth.fetchGmailAddress(tokens.access_token);
+
+    await gmailStore.setConnection(personId, {
+      email,
+      refreshToken: tokens.refresh_token,
+      connectedAt: new Date().toISOString()
+    });
+
+    res.redirect(`${FRONTEND_URL}/?gmail=connected`);
+  } catch (err) {
+    console.error('Gmail OAuth callback failed:', err.message);
+    res.redirect(`${FRONTEND_URL}/?gmail=error`);
+  }
+});
+
+app.post('/api/gmail/disconnect', requireAuth, requirePerson, async (req, res) => {
+  try {
+    await gmailStore.removeConnection(req.personId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to disconnect Gmail:', err.message);
+    res.status(502).json({ error: 'Data store unavailable' });
   }
 });
 
