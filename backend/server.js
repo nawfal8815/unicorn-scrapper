@@ -9,6 +9,7 @@ const { requireAuth, optionalAuth } = require('./middleware/auth');
 const { personIdForEmail } = require('./people');
 const { renderCvToDocxBuffer } = require('./cv/render');
 const { docxBufferToPdfBuffer } = require('./cv/pdf');
+const { applyJobAdjustments } = require('./cv/adjustments');
 const gmailOAuth = require('./gmail/oauth');
 const gmailStore = require('./gmail/store');
 
@@ -174,6 +175,8 @@ async function buildAndSendCvPdf(personId, jobId, res) {
     if (!profileSnap.exists) return res.status(500).json({ error: 'Missing base profile' });
     cv = profileSnap.data();
   }
+
+  cv = applyJobAdjustments(cv, application);
 
   const docxBuf = await renderCvToDocxBuffer(cv);
   const pdfBuf = await docxBufferToPdfBuffer(docxBuf);

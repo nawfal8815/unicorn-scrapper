@@ -17,13 +17,16 @@ async function generateForJobAndPerson(job, id, personId) {
     // scrape finds them, rather than staying null forever just because a record already exists.
     const freshEmail = job.applicationEmail ?? null;
     const freshRequirements = job.requirements ?? [];
+    const freshSubtitle = job.subtitle ?? null;
     const emailNewlyFound = !existing.applicationEmail && freshEmail;
     const requirementsNewlyFound = (!existing.requirements || existing.requirements.length === 0) && freshRequirements.length > 0;
+    const subtitleNewlyFound = !existing.subtitle && freshSubtitle;
 
-    if (emailNewlyFound || requirementsNewlyFound) {
+    if (emailNewlyFound || requirementsNewlyFound || subtitleNewlyFound) {
       const patch = {};
       if (emailNewlyFound) patch.applicationEmail = freshEmail;
       if (requirementsNewlyFound) patch.requirements = freshRequirements;
+      if (subtitleNewlyFound) patch.subtitle = freshSubtitle;
       await setApplication(id, personId, patch);
       return { skipped: true, reason: 'already-generated', backfilled: Object.keys(patch) };
     }
@@ -36,6 +39,7 @@ async function generateForJobAndPerson(job, id, personId) {
   const base = {
     company: job.company,
     jobTitle: job.title,
+    subtitle: job.subtitle ?? null,
     applyUrl: job.applyUrl,
     careersUrl: job.careersUrl ?? null,
     applicationEmail: job.applicationEmail ?? null,

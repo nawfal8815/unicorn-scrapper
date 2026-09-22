@@ -5,6 +5,7 @@ const { sendEmail } = require('../backend/gmail/send');
 const { getConnection } = require('../backend/gmail/store');
 const { getProfile } = require('./profiles');
 const { generateCoverLetter } = require('./coverletter');
+const { applyJobAdjustments } = require('../backend/cv/adjustments');
 const { createProgressWriter } = require('../scraper/progress');
 
 const progress = createProgressWriter('apply');
@@ -20,13 +21,34 @@ async function loadCandidates() {
   const candidates = [];
   snap.forEach(doc => {
     const data = doc.data();
-    if (data.applicationEmail) candidates.push({ docId: doc.id, ...data });
+    // sendingStartedAt means a previous run already claimed this one - either it's
+    // still in flight (shouldn't happen within one run, but guards concurrent runs)
+    // or a previous run crashed mid-send. Either way, NEVER auto-retry: a crash could
+    // mean the email genuinely went out before the crash. Needs a human to clear it.
+    if (data.applicationEmail && !data.sendingStartedAt) {
+      candidates.push({ docId: doc.id, ...data });
+    }
   });
   return candidates;
 }
 
+// Atomically claims this application for sending, so a crash between "send succeeded"
+// and "mark applied" can never result in a second run re-sending the same email.
+// Returns false if it's already been claimed (by this run or a previous one).
+async function claimForSending(docId) {
+  const ref = getDb().collection('applications').doc(docId);
+  return getDb().runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const data = snap.data();
+    if (!data || data.applied || data.sendingStartedAt) return false;
+    tx.update(ref, { sendingStartedAt: new Date().toISOString() });
+    return true;
+  });
+}
+
 async function buildCvPdf(application) {
-  const cv = application.cvType === 'tailored' ? application.cvJson : await getProfile(application.personId);
+  const baseCv = application.cvType === 'tailored' ? application.cvJson : await getProfile(application.personId);
+  const cv = applyJobAdjustments(baseCv, application);
   const docxBuf = await renderCvToDocxBuffer(cv);
   return docxBufferToPdfBuffer(docxBuf);
 }
@@ -98,17 +120,31 @@ async function run() {
       continue;
     }
 
+    if (dryRun) {
+      console.log(`[dry-run] would send to ${application.applicationEmail} for ${application.company} / ${application.jobTitle} (${application.personId})`);
+      sent++;
+      processed++;
+      continue;
+    }
+
+    const claimed = await claimForSending(application.docId);
+    if (!claimed) {
+      console.log(`[skip] ${application.company} / ${application.jobTitle} (${application.personId}) - already claimed by another run, not retrying`);
+      continue;
+    }
+
     try {
-      if (dryRun) {
-        console.log(`[dry-run] would send to ${application.applicationEmail} for ${application.company} / ${application.jobTitle} (${application.personId})`);
-      } else {
-        await applyToOne(application, connection);
-        console.log(`[sent] ${application.company} / ${application.jobTitle} (${application.personId}) -> ${application.applicationEmail}`);
-      }
+      await applyToOne(application, connection);
+      console.log(`[sent] ${application.company} / ${application.jobTitle} (${application.personId}) -> ${application.applicationEmail}`);
       sent++;
     } catch (err) {
       failed++;
-      console.error(`[failed] ${application.company} / ${application.jobTitle} (${application.personId}): ${err.message}`);
+      // Deliberately NOT clearing sendingStartedAt: if the send actually went through
+      // and only the follow-up Firestore write failed, clearing it would let a future
+      // run send a genuine duplicate. This one now needs a human to check Sent mail and
+      // clear it manually before it can be retried.
+      await getDb().collection('applications').doc(application.docId).update({ sendFailed: true, sendError: err.message }).catch(() => {});
+      console.error(`[failed] ${application.company} / ${application.jobTitle} (${application.personId}): ${err.message} - needs manual review before retrying`);
     }
 
     processed++;
