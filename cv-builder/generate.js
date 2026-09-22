@@ -3,8 +3,10 @@ const { jobId } = require('../scraper/job-id');
 const { getProfile } = require('./profiles');
 const { tailorCvForJob } = require('./tailor');
 const { getApplication, setApplication } = require('./applications');
+const { createProgressWriter } = require('../scraper/progress');
 
 const PEOPLE = ['naoufal', 'seif'];
+const progress = createProgressWriter('generate');
 
 async function generateForJobAndPerson(job, id, personId) {
   const existing = await getApplication(id, personId);
@@ -79,9 +81,21 @@ async function run() {
   if (jobs.length === 0) throw new Error('No jobs found in data/jobs or data/external-jobs.');
   console.log(`Loaded ${jobs.length} jobs (career pages + external boards).`);
 
+  const totalJobs = Math.min(jobs.length, limit === Infinity ? jobs.length : limit);
+
   let processed = 0;
   let generated = 0;
   let skipped = 0;
+
+  progress.write({
+    status: 'running',
+    totalJobs,
+    processed: 0,
+    generated: 0,
+    skipped: 0,
+    currentCompany: null,
+    percent: 0
+  });
 
   for (const job of jobs) {
     if (processed >= limit) break;
@@ -99,15 +113,54 @@ async function run() {
           (result.addedSkills.length ? ` — added: ${result.addedSkills.join(', ')}` : '')
         );
       }
+
+      progress.pushRecent({
+        company: job.company,
+        jobTitle: job.title,
+        personId,
+        skipped: result.skipped,
+        cvType: result.cvType ?? null,
+        addedSkills: result.addedSkills ?? []
+      });
     }
 
     processed++;
+
+    progress.write({
+      status: 'running',
+      totalJobs,
+      processed,
+      generated,
+      skipped,
+      currentCompany: job.company,
+      percent: Math.round((processed / totalJobs) * 100)
+    });
   }
+
+  progress.write({
+    status: 'done',
+    totalJobs,
+    processed,
+    generated,
+    skipped,
+    currentCompany: null,
+    percent: 100
+  });
 
   console.log(`\nDone. Jobs processed: ${processed}, applications generated: ${generated}, skipped: ${skipped}.`);
 }
 
 run().catch(err => {
   console.error('Failed:', err);
+  progress.write({
+    status: 'error',
+    message: err.message,
+    totalJobs: 0,
+    processed: 0,
+    generated: 0,
+    skipped: 0,
+    currentCompany: null,
+    percent: 0
+  });
   process.exitCode = 1;
 });

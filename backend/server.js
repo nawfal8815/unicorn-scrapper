@@ -115,6 +115,9 @@ app.get(
 app.get('/api/scrape-progress', optionalAuth, serveDoc('progress', 'scrape'));
 app.get('/api/jobs-progress', optionalAuth, serveDoc('progress', 'jobs'));
 app.get('/api/external-jobs-progress', optionalAuth, serveDoc('progress', 'external-jobs'));
+app.get('/api/generate-progress', optionalAuth, serveDoc('progress', 'generate'));
+app.get('/api/apply-progress', optionalAuth, serveDoc('progress', 'apply'));
+app.get('/api/inbox-progress', optionalAuth, serveDoc('progress', 'inbox'));
 
 function requirePerson(req, res, next) {
   const personId = personIdForEmail(req.user.email);

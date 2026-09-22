@@ -5,6 +5,7 @@ import NavBar from './components/NavBar';
 import Dashboard from './pages/Dashboard';
 import Jobs from './pages/Jobs';
 import ExternalJobs from './pages/ExternalJobs';
+import Activity from './pages/Activity';
 import './App.css';
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/jobs" element={<Jobs />} />
             <Route path="/external-jobs" element={<ExternalJobs />} />
+            <Route path="/activity" element={<Activity />} />
           </Routes>
         </AuthGate>
       </BrowserRouter>

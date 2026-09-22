@@ -26,6 +26,9 @@ export default function NavBar() {
           >
             Job Boards
           </NavLink>
+          <NavLink to="/activity" className={({ isActive }) => (isActive ? 'nav-link active' : 'nav-link')}>
+            Activity
+          </NavLink>
         </nav>
         {user && (
           <div className="nav-user">
