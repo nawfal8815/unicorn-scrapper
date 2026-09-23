@@ -20,6 +20,7 @@ const { generateCoverLetter } = require('../coverletter');
 const { createProgressWriter } = require('../../scraper/progress');
 
 const PEOPLE = ['naoufal', 'seif'];
+const DRY_RUN = process.env.DRY_RUN === '1';
 const MAX_APPLIES_PER_RUN = Number(process.env.MAX_CVBANKAS_APPLIES_PER_RUN || 15);
 const CHROMIUM_PATH = process.env.CHROMIUM_EXECUTABLE_PATH || '/snap/bin/chromium';
 const STORAGE_STATE_DIR = path.join(__dirname, 'storage-state');
@@ -88,6 +89,10 @@ async function applyToOne(page, application, profile) {
     }
   }
 
+  if (DRY_RUN) {
+    return { outcome: 'dry-run', wouldApplyAt: page.url(), coverLetterUsed: coverLetter ?? null };
+  }
+
   const consentCheckbox = page.locator('input[type=checkbox]').first();
   if (await consentCheckbox.count()) {
     await consentCheckbox.check();
@@ -125,16 +130,22 @@ async function runForPerson(browser, personId, stats) {
       break;
     }
 
-    const claimed = await claimForApply(application.docId);
-    if (!claimed) {
-      console.log(`[skip] ${application.company} / ${application.jobTitle} (${personId}) - already claimed, not retrying`);
-      continue;
+    if (!DRY_RUN) {
+      const claimed = await claimForApply(application.docId);
+      if (!claimed) {
+        console.log(`[skip] ${application.company} / ${application.jobTitle} (${personId}) - already claimed, not retrying`);
+        continue;
+      }
     }
 
     try {
       const result = await applyToOne(page, application, profile);
 
-      if (result.outcome === 'applied') {
+      if (result.outcome === 'dry-run') {
+        stats.applied++;
+        console.log(`[dry-run] would apply: ${application.company} / ${application.jobTitle} (${personId}) at ${result.wouldApplyAt}`);
+        if (result.coverLetterUsed) console.log(`           cover letter: ${result.coverLetterUsed.slice(0, 120)}...`);
+      } else if (result.outcome === 'applied') {
         await getDb().collection('applications').doc(application.docId).update({
           cvbankasApplied: true,
           cvbankasAppliedAt: new Date().toISOString(),
@@ -143,42 +154,50 @@ async function runForPerson(browser, personId, stats) {
         stats.applied++;
         console.log(`[applied] ${application.company} / ${application.jobTitle} (${personId})`);
       } else if (result.outcome === 'skipped') {
-        await getDb().collection('applications').doc(application.docId).update({
-          cvbankasSkipped: true,
-          cvbankasSkipReason: result.reason
-        });
+        if (!DRY_RUN) {
+          await getDb().collection('applications').doc(application.docId).update({
+            cvbankasSkipped: true,
+            cvbankasSkipReason: result.reason
+          });
+        }
         stats.skipped++;
-        console.log(`[skip] ${application.company} / ${application.jobTitle} (${personId}) - ${result.reason}`);
+        console.log(`[skip${DRY_RUN ? '-dry-run' : ''}] ${application.company} / ${application.jobTitle} (${personId}) - ${result.reason}`);
       } else {
-        await getDb().collection('applications').doc(application.docId).update({
-          cvbankasApplyFailed: true,
-          cvbankasApplyError: result.reason
-        });
+        if (!DRY_RUN) {
+          await getDb().collection('applications').doc(application.docId).update({
+            cvbankasApplyFailed: true,
+            cvbankasApplyError: result.reason
+          });
+        }
         stats.failed++;
-        console.log(`[failed] ${application.company} / ${application.jobTitle} (${personId}) - ${result.reason} - needs manual review`);
+        console.log(`[failed${DRY_RUN ? '-dry-run' : ''}] ${application.company} / ${application.jobTitle} (${personId}) - ${result.reason} - needs manual review`);
       }
     } catch (err) {
       // Deliberately NOT clearing cvbankasApplyStartedAt - if the click actually went
       // through and only a later step (Firestore write, cover-letter generation) threw,
       // clearing the claim would let a future run submit a genuine duplicate application.
-      await getDb().collection('applications').doc(application.docId).update({
-        cvbankasApplyFailed: true,
-        cvbankasApplyError: err.message
-      }).catch(() => {});
+      if (!DRY_RUN) {
+        await getDb().collection('applications').doc(application.docId).update({
+          cvbankasApplyFailed: true,
+          cvbankasApplyError: err.message
+        }).catch(() => {});
+      }
       stats.failed++;
-      console.error(`[failed] ${application.company} / ${application.jobTitle} (${personId}): ${err.message} - needs manual review before retrying`);
+      console.error(`[failed${DRY_RUN ? '-dry-run' : ''}] ${application.company} / ${application.jobTitle} (${personId}): ${err.message}`);
     }
 
     stats.processed++;
-    progress.write({
-      status: 'running',
-      total: stats.total,
-      processed: stats.processed,
-      applied: stats.applied,
-      skipped: stats.skipped,
-      failed: stats.failed,
-      percent: Math.round((stats.processed / stats.total) * 100)
-    });
+    if (!DRY_RUN) {
+      progress.write({
+        status: 'running',
+        total: stats.total,
+        processed: stats.processed,
+        applied: stats.applied,
+        skipped: stats.skipped,
+        failed: stats.failed,
+        percent: Math.round((stats.processed / stats.total) * 100)
+      });
+    }
 
     await page.waitForTimeout(3000 + Math.random() * 5000);
   }
@@ -187,6 +206,7 @@ async function runForPerson(browser, personId, stats) {
 }
 
 async function run() {
+  if (DRY_RUN) console.log('DRY_RUN=1 - will not actually submit any applications or write to Firestore.');
   const stats = { total: 0, processed: 0, applied: 0, skipped: 0, failed: 0 };
   const perPersonCandidates = {};
   for (const personId of PEOPLE) {
@@ -200,7 +220,7 @@ async function run() {
     return;
   }
 
-  progress.write({ status: 'running', total: stats.total, processed: 0, applied: 0, skipped: 0, failed: 0, percent: 0 });
+  if (!DRY_RUN) progress.write({ status: 'running', total: stats.total, processed: 0, applied: 0, skipped: 0, failed: 0, percent: 0 });
 
   const browser = await chromium.launch({
     executablePath: CHROMIUM_PATH,
@@ -216,17 +236,19 @@ async function run() {
     await browser.close();
   }
 
-  progress.write({
-    status: 'done',
-    total: stats.total,
-    processed: stats.processed,
-    applied: stats.applied,
-    skipped: stats.skipped,
-    failed: stats.failed,
-    percent: 100
-  });
+  if (!DRY_RUN) {
+    progress.write({
+      status: 'done',
+      total: stats.total,
+      processed: stats.processed,
+      applied: stats.applied,
+      skipped: stats.skipped,
+      failed: stats.failed,
+      percent: 100
+    });
+  }
 
-  console.log(`\nDone. Applied: ${stats.applied}, skipped: ${stats.skipped}, failed: ${stats.failed}.`);
+  console.log(`\nDone. ${DRY_RUN ? 'Would apply' : 'Applied'}: ${stats.applied}, skipped: ${stats.skipped}, failed: ${stats.failed}.`);
 }
 
 run().catch(err => {
