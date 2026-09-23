@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { fetchPdfBlob, apiPost, ApiError } from '../lib/api';
 import ApplicationTimeline from './ApplicationTimeline';
 import { getExperienceTier, TIER_META } from '../utils/experienceTier';
+import { isApplied } from '../utils/applications';
 
 const COMPANY_TYPE_META = {
   perfectMatches: { label: 'Perfect match', tone: 'good' },
@@ -13,7 +14,7 @@ const COMPANY_TYPE_META = {
 
 const PERSON_LABELS = { naoufal: 'Naoufal', seif: 'Seif' };
 
-function PersonApplicationRow({ jobId, personId, application, showLabel, allowManualApply }) {
+function PersonApplicationRow({ jobId, personId, application, showLabel, allowManualApply, simpleStatus }) {
   const [cvState, setCvState] = useState('idle'); // idle | loading | error
   const [manualApplyState, setManualApplyState] = useState('idle'); // idle | saving | error
   const [manuallyApplied, setManuallyApplied] = useState(Boolean(application.manuallyApplied));
@@ -56,7 +57,13 @@ function PersonApplicationRow({ jobId, personId, application, showLabel, allowMa
   return (
     <div className="job-application-row">
       {showLabel && <span className="job-application-person">{PERSON_LABELS[personId] ?? personId}</span>}
-      <ApplicationTimeline application={{ ...application, manuallyApplied }} />
+      {simpleStatus ? (
+        <span className={`applied-badge ${isApplied({ ...application, manuallyApplied }) ? 'yes' : 'no'}`}>
+          {isApplied({ ...application, manuallyApplied }) ? 'Applied' : 'Not applied'}
+        </span>
+      ) : (
+        <ApplicationTimeline application={{ ...application, manuallyApplied }} />
+      )}
       <div className="job-cv-row">
         <button type="button" className="job-cv-btn" onClick={handleViewCv} disabled={cvState === 'loading'}>
           {cvState === 'loading' ? 'Building…' : 'View generated CV'}
@@ -79,7 +86,7 @@ function PersonApplicationRow({ jobId, personId, application, showLabel, allowMa
   );
 }
 
-export default function JobCard({ job, application, applicationsByPerson }) {
+export default function JobCard({ job, application, applicationsByPerson, simpleStatus, isHistory }) {
   const [expanded, setExpanded] = useState(false);
   const requirements = job.requirements ?? [];
   const visibleRequirements = expanded ? requirements : requirements.slice(0, 3);
@@ -94,7 +101,8 @@ export default function JobCard({ job, application, applicationsByPerson }) {
       : [];
 
   return (
-    <article className="job-card">
+    <article className={`job-card ${isHistory ? 'job-card-history' : ''}`}>
+      {isHistory && <span className="job-history-badge">No longer listed — kept as application history</span>}
       <div className="job-card-top">
         <span className="job-company">
           {job.company}
@@ -106,7 +114,7 @@ export default function JobCard({ job, application, applicationsByPerson }) {
         </span>
         <span className="job-badges">
           <span className={`tier-badge tone-${tierMeta.tone}`}>{tierMeta.label}</span>
-          <span className="job-keyword-badge">{job.matchedKeyword}</span>
+          {job.matchedKeyword && <span className="job-keyword-badge">{job.matchedKeyword}</span>}
         </span>
       </div>
 
@@ -137,6 +145,7 @@ export default function JobCard({ job, application, applicationsByPerson }) {
           application={app}
           showLabel={Boolean(applicationsByPerson)}
           allowManualApply={!applicationsByPerson}
+          simpleStatus={simpleStatus}
         />
       ))}
 

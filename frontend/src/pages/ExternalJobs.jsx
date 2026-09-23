@@ -4,7 +4,7 @@ import ExternalJobsProgressPanel from '../components/ExternalJobsProgressPanel';
 import useProgress from '../hooks/useProgress';
 import useApiData from '../hooks/useApiData';
 import { formatTimestamp } from '../utils/format';
-import { jobApplicationProps } from '../utils/applications';
+import { buildJobBoardEntries } from '../utils/applications';
 import { getExperienceTier, TIER_META } from '../utils/experienceTier';
 
 const EMPTY_DATA = {
@@ -34,20 +34,27 @@ export default function ExternalJobs() {
   const { data: applications } = useApiData('/api/applications');
   const data = fetched ?? EMPTY_DATA;
 
-  const jobs = useMemo(() => data.sources?.[source]?.jobs ?? [], [data, source]);
+  const liveJobs = useMemo(() => data.sources?.[source]?.jobs ?? [], [data, source]);
+
+  // Merges today's live scrape with delisted-but-applied-to jobs pulled from application
+  // history, sorted not-applied first, then applied-and-live, then history last.
+  const entries = useMemo(
+    () => buildJobBoardEntries(source, liveJobs, applications),
+    [source, liveJobs, applications]
+  );
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return jobs.filter(job => {
+    return entries.filter(({ job }) => {
       if (tierFilter !== 'all' && getExperienceTier(job) !== Number(tierFilter)) return false;
       if (!q) return true;
       return (
         job.title.toLowerCase().includes(q) ||
         (job.company ?? '').toLowerCase().includes(q) ||
-        job.matchedKeyword.toLowerCase().includes(q)
+        (job.matchedKeyword ?? '').toLowerCase().includes(q)
       );
     });
-  }, [jobs, search, tierFilter]);
+  }, [entries, search, tierFilter]);
 
   if (loading && !fetched) {
     return (
@@ -152,8 +159,15 @@ export default function ExternalJobs() {
         </div>
       ) : (
         <div className="jobs-grid">
-          {filtered.map((job, i) => (
-            <JobCard key={`${job.applyUrl}-${i}`} job={job} {...jobApplicationProps(applications, job.id)} />
+          {filtered.map(({ job, application, applicationsByPerson, isHistory }) => (
+            <JobCard
+              key={job.id}
+              job={job}
+              application={application}
+              applicationsByPerson={applicationsByPerson}
+              simpleStatus
+              isHistory={isHistory}
+            />
           ))}
         </div>
       )}
