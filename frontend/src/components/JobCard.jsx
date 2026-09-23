@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { hostnameFromUrl } from '../utils/format';
 import { useAuth } from '../context/AuthContext';
-import { fetchPdfBlob, ApiError } from '../lib/api';
+import { fetchPdfBlob, apiPost, ApiError } from '../lib/api';
 import ApplicationTimeline from './ApplicationTimeline';
 import { getExperienceTier, TIER_META } from '../utils/experienceTier';
 
@@ -13,8 +13,10 @@ const COMPANY_TYPE_META = {
 
 const PERSON_LABELS = { naoufal: 'Naoufal', seif: 'Seif' };
 
-function PersonApplicationRow({ jobId, personId, application, showLabel }) {
+function PersonApplicationRow({ jobId, personId, application, showLabel, allowManualApply }) {
   const [cvState, setCvState] = useState('idle'); // idle | loading | error
+  const [manualApplyState, setManualApplyState] = useState('idle'); // idle | saving | error
+  const [manuallyApplied, setManuallyApplied] = useState(Boolean(application.manuallyApplied));
   const { getIdToken, user } = useAuth();
 
   async function handleViewCv() {
@@ -36,16 +38,43 @@ function PersonApplicationRow({ jobId, personId, application, showLabel }) {
     }
   }
 
+  async function handleManualApplyToggle(e) {
+    const next = e.target.checked;
+    setManuallyApplied(next);
+    setManualApplyState('saving');
+    try {
+      const token = await getIdToken();
+      await apiPost(`/api/applications/${jobId}/manual-apply`, token, { applied: next });
+      setManualApplyState('idle');
+    } catch (err) {
+      setManuallyApplied(!next);
+      setManualApplyState('error');
+      console.error('Failed to update manual apply status:', err instanceof ApiError ? err.message : err);
+    }
+  }
+
   return (
     <div className="job-application-row">
       {showLabel && <span className="job-application-person">{PERSON_LABELS[personId] ?? personId}</span>}
-      <ApplicationTimeline application={application} />
+      <ApplicationTimeline application={{ ...application, manuallyApplied }} />
       <div className="job-cv-row">
         <button type="button" className="job-cv-btn" onClick={handleViewCv} disabled={cvState === 'loading'}>
           {cvState === 'loading' ? 'Building…' : 'View generated CV'}
         </button>
         {cvState === 'error' && <span className="job-cv-error">Couldn't load CV, try again.</span>}
       </div>
+      {allowManualApply && (
+        <label className="job-manual-apply">
+          <input
+            type="checkbox"
+            checked={manuallyApplied}
+            onChange={handleManualApplyToggle}
+            disabled={manualApplyState === 'saving'}
+          />
+          I applied to this myself
+          {manualApplyState === 'error' && <span className="job-cv-error"> — couldn't save, try again</span>}
+        </label>
+      )}
     </div>
   );
 }
@@ -107,6 +136,7 @@ export default function JobCard({ job, application, applicationsByPerson }) {
           personId={personId}
           application={app}
           showLabel={Boolean(applicationsByPerson)}
+          allowManualApply={!applicationsByPerson}
         />
       ))}
 

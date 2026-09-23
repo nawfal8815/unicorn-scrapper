@@ -25,7 +25,8 @@ async function loadCandidates() {
     // still in flight (shouldn't happen within one run, but guards concurrent runs)
     // or a previous run crashed mid-send. Either way, NEVER auto-retry: a crash could
     // mean the email genuinely went out before the crash. Needs a human to clear it.
-    if (data.applicationEmail && !data.sendingStartedAt) {
+    // manuallyApplied means the person applied by hand themselves - stop automating it.
+    if (data.applicationEmail && !data.sendingStartedAt && !data.manuallyApplied) {
       candidates.push({ docId: doc.id, ...data });
     }
   });

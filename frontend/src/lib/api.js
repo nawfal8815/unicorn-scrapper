@@ -21,6 +21,24 @@ export async function apiFetch(path, token) {
   return res.json();
 }
 
+export async function apiPost(path, token, body) {
+  const res = await fetch(`${BASE_URL}${path}`, {
+    method: 'POST',
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body ?? {})
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new ApiError(res.status, errBody.error ?? `Request failed (${res.status})`);
+  }
+
+  return res.json();
+}
+
 export async function fetchPdfBlob(path, token) {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},

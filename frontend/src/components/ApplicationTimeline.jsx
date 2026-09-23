@@ -7,7 +7,11 @@ const REPLY_LABELS = {
 function buildSteps(application) {
   return [
     { key: 'cv', label: 'CV ready', done: Boolean(application.cvGenerated) },
-    { key: 'applied', label: 'Applied', done: Boolean(application.applied) },
+    {
+      key: 'applied',
+      label: 'Applied',
+      done: Boolean(application.applied || application.cvbankasApplied || application.manuallyApplied)
+    },
     { key: 'contacts', label: 'Contacts found', done: Boolean(application.contactsFound) },
     { key: 'email', label: 'Email sent', done: Boolean(application.emailSent) },
     {

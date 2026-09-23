@@ -44,7 +44,8 @@ async function loadCandidates(personId) {
     const data = doc.data();
     // Same claim-before-act idempotency rule as email sending: never auto-retry a job
     // that's already claimed or applied, even on crash recovery - needs a human look.
-    if (data.applyUrl && !data.cvbankasApplied && !data.cvbankasApplyStartedAt) {
+    // manuallyApplied means the person applied by hand themselves - stop automating it.
+    if (data.applyUrl && !data.cvbankasApplied && !data.cvbankasApplyStartedAt && !data.manuallyApplied) {
       candidates.push({ docId: doc.id, ...data });
     }
   });

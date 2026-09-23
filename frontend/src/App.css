@@ -1263,6 +1263,20 @@ tbody tr:hover td {
   color: var(--warn);
 }
 
+.job-manual-apply {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.job-manual-apply input {
+  cursor: pointer;
+}
+
 .job-card-footer {
   margin-top: auto;
   padding-top: 12px;

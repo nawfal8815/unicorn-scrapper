@@ -43,6 +43,7 @@ const app = express();
 // reflect the caller's origin rather than pinning to one (which broke local dev and
 // would break any future frontend host).
 app.use(cors({ origin: true }));
+app.use(express.json());
 
 function serveDoc(collection, docId, emptyDefault) {
   return async (req, res) => {
@@ -195,6 +196,30 @@ app.get('/api/applications/:jobId/cv-pdf', requireAuth, requirePerson, async (re
   } catch (err) {
     console.error('Failed to build CV PDF:', err.message);
     res.status(500).json({ error: 'Failed to build CV' });
+  }
+});
+
+// Lets a signed-in person flag a job as applied to by hand - e.g. automation failed or
+// skipped it (external ATS redirect, no application email found) and they went and did
+// it themselves. Scoped to requirePerson so nobody can mark applications that aren't
+// their own; setting this also stops the apply/quick-apply automation from retrying it.
+app.post('/api/applications/:jobId/manual-apply', requireAuth, requirePerson, async (req, res) => {
+  try {
+    const docId = `${req.params.jobId}_${req.personId}`;
+    const ref = db.collection('applications').doc(docId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'No application found for this job' });
+
+    const applied = Boolean(req.body?.applied);
+    await ref.update({
+      manuallyApplied: applied,
+      manuallyAppliedAt: applied ? new Date().toISOString() : null
+    });
+
+    res.json({ ok: true, manuallyApplied: applied });
+  } catch (err) {
+    console.error('Failed to update manual apply status:', err.message);
+    res.status(502).json({ error: 'Data store unavailable' });
   }
 });
 
