@@ -47,6 +47,13 @@ const STAGES = [
     title: '6. Check inbox for replies',
     description: 'Checks each sent application\'s email thread and classifies any reply (confirmation / rejection / needs attention).',
     formatEntry: null
+  },
+  {
+    key: 'cvbankas-apply',
+    path: '/api/cvbankas-apply-progress',
+    title: '7. CVbankas quick-apply',
+    description: 'Uses the native "Send CV" flow on CVbankas listings with an already logged-in session; skips listings that redirect to an external ATS.',
+    formatEntry: null
   }
 ];
 

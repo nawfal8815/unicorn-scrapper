@@ -15,6 +15,7 @@ frontend/dist/
 # Secrets
 .env
 .env.*
+cv-builder/quickapply/storage-state/
 
 # CVs (personal data — source of truth is the Firestore `profiles` collection)
 /*.pdf

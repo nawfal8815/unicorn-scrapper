@@ -9,7 +9,9 @@
     "scrape:external": "node --env-file=.env scraper/external-jobs-scraper.js",
     "scrape:daily": "node --env-file=.env scraper/daily-runner.js",
     "cv:seed-profiles": "node --env-file=.env cv-builder/seed-profiles.js",
-    "cv:generate": "node --env-file=.env cv-builder/generate.js"
+    "cv:generate": "node --env-file=.env cv-builder/generate.js",
+    "cv:quickapply:cvbankas": "node --env-file=.env cv-builder/quickapply/cvbankas.js",
+    "cv:capture-session": "node cv-builder/quickapply/capture-session.js"
   },
   "keywords": [],
   "author": "",
@@ -18,6 +20,7 @@
   "dependencies": {
     "docx": "^9.7.1",
     "firebase-admin": "^13.0.2",
-    "playwright": "^1.63.0"
+    "playwright": "^1.63.0",
+    "playwright-core": "^1.63.0"
   }
 }

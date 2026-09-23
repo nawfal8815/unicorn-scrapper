@@ -119,6 +119,7 @@ app.get('/api/external-jobs-progress', optionalAuth, serveDoc('progress', 'exter
 app.get('/api/generate-progress', optionalAuth, serveDoc('progress', 'generate'));
 app.get('/api/apply-progress', optionalAuth, serveDoc('progress', 'apply'));
 app.get('/api/inbox-progress', optionalAuth, serveDoc('progress', 'inbox'));
+app.get('/api/cvbankas-apply-progress', optionalAuth, serveDoc('progress', 'cvbankas-apply'));
 
 function requirePerson(req, res, next) {
   const personId = personIdForEmail(req.user.email);
