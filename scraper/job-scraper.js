@@ -98,12 +98,24 @@ async function collectAnchors(page) {
 
   for (const frame of frames) {
     const found = await frame
-      .$$eval('a', as =>
-        as.map(a => ({
-          text: (a.textContent || '').replace(/\s+/g, ' ').trim(),
+      .$$eval('a', as => {
+        // textContent joins sibling elements with no space (e.g. adjacent <span>s render
+        // as "Android)Tech" instead of "Android) Tech"), so walk the tree inserting a
+        // space around every element boundary instead - the final whitespace collapse
+        // cleans up the extra spacing this adds around already-correct text.
+        function spacedText(el) {
+          let out = '';
+          for (const node of el.childNodes) {
+            if (node.nodeType === 3) out += node.textContent;
+            else if (node.nodeType === 1) out += ` ${spacedText(node)} `;
+          }
+          return out;
+        }
+        return as.map(a => ({
+          text: spacedText(a).replace(/\s+/g, ' ').trim(),
           href: a.getAttribute('href') || ''
-        }))
-      )
+        }));
+      })
       .catch(() => []);
 
     anchors.push(...found);

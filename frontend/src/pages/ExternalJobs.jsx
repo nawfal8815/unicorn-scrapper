@@ -34,14 +34,20 @@ export default function ExternalJobs() {
   const { data: applications } = useApiData('/api/applications');
   const data = fetched ?? EMPTY_DATA;
 
-  const liveJobs = useMemo(() => data.sources?.[source]?.jobs ?? [], [data, source]);
-
   // Merges today's live scrape with delisted-but-applied-to jobs pulled from application
-  // history, sorted not-applied first, then applied-and-live, then history last.
-  const entries = useMemo(
-    () => buildJobBoardEntries(source, liveJobs, applications),
-    [source, liveJobs, applications]
-  );
+  // history, sorted not-applied first, then applied-and-live, then history last. Computed
+  // for all three sources (not just the active tab) so the summary cards and tab counts
+  // reflect what's actually shown, not just today's live-scrape count - a source can have
+  // 0 new listings today and still have 20 applications sitting in its history.
+  const entriesBySource = useMemo(() => {
+    const result = {};
+    for (const t of SOURCE_TABS) {
+      result[t.id] = buildJobBoardEntries(t.id, data.sources?.[t.id]?.jobs ?? [], applications);
+    }
+    return result;
+  }, [data, applications]);
+
+  const entries = entriesBySource[source] ?? [];
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -93,14 +99,16 @@ export default function ExternalJobs() {
           <span className="summary-value">{(data.totalMatches ?? 0).toLocaleString()}</span>
           <span className="summary-label">Total matches</span>
         </div>
-        {SOURCE_TABS.map(t => (
-          <div key={t.id} className="summary-card tone-neutral">
-            <span className="summary-value">
-              {(data.sources?.[t.id]?.jobsFound ?? 0).toLocaleString()}
-            </span>
-            <span className="summary-label">{t.label}</span>
-          </div>
-        ))}
+        {SOURCE_TABS.map(t => {
+          const newToday = data.sources?.[t.id]?.jobsFound ?? 0;
+          return (
+            <div key={t.id} className="summary-card tone-neutral">
+              <span className="summary-value">{(entriesBySource[t.id]?.length ?? 0).toLocaleString()}</span>
+              <span className="summary-label">{t.label}</span>
+              <span className="summary-sublabel">{newToday.toLocaleString()} new today</span>
+            </div>
+          );
+        })}
       </div>
 
       <nav className="tabs" role="tablist">
@@ -113,7 +121,7 @@ export default function ExternalJobs() {
             onClick={() => setSource(t.id)}
           >
             <span className="tab-label">{t.label}</span>
-            <span className="tab-count">{data.sources?.[t.id]?.jobsFound ?? 0}</span>
+            <span className="tab-count">{entriesBySource[t.id]?.length ?? 0}</span>
           </button>
         ))}
       </nav>
