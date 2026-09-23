@@ -31,7 +31,7 @@ const STAGES = [
     title: '4. Generate CVs',
     description: 'For every match, compares requirements to the real skill list and tailors a CV per person.',
     formatEntry: e =>
-      `${e.company} / ${e.jobTitle} (${PERSON_LABELS[e.personId] ?? e.personId}) — ` +
+      `${e.company ?? 'Unknown company'} / ${e.jobTitle} (${PERSON_LABELS[e.personId] ?? e.personId}) — ` +
       (e.skipped ? 'skipped (already done)' : `${e.cvType}${e.addedSkills?.length ? `, added: ${e.addedSkills.join(', ')}` : ''}`)
   },
   {
