@@ -1,4 +1,8 @@
-const { chromium } = require('playwright');
+// playwright-core (not the full playwright package) - this runs on the Oracle VPS, whose
+// ARM64 Ubuntu 20.04 image has no working bundled-Chromium download from Playwright; the
+// snap-installed Chromium at CHROMIUM_EXECUTABLE_PATH is what actually works there. Also
+// runs fine locally/elsewhere by pointing the env var at any real Chrome/Chromium install.
+const { chromium } = require('playwright-core');
 const { PHRASES } = require('./keywords');
 const { createProgressWriter } = require('./progress');
 const { writeDoc } = require('./firestore');
@@ -61,7 +65,11 @@ async function run() {
     percent: 0
   });
 
-  const browser = await chromium.launch({ headless: process.env.HEADFUL !== '1' });
+  const browser = await chromium.launch({
+    executablePath: process.env.CHROMIUM_EXECUTABLE_PATH || '/snap/bin/chromium',
+    headless: process.env.HEADFUL !== '1',
+    args: ['--no-sandbox']
+  });
   const context = await browser.newContext({
     userAgent:
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 ' +

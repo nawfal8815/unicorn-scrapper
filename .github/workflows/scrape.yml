@@ -52,11 +52,6 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node scraper/job-scraper.js
 
-      - name: Run external job boards
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node scraper/external-jobs-scraper.js
-
       - name: Generate application CVs
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

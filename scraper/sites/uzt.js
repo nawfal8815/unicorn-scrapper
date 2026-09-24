@@ -8,11 +8,19 @@ const MAX_MATCHES = process.env.LIMIT ? 5 : 150; // safety cap on detail-page cl
 
 async function dismissCookieBanner(page) {
   // The banner's own text is Lithuanian ("Leisti visus slapukus" = "Allow all cookies"),
-  // not English - the English selector never matched, so the banner stayed on screen and
-  // silently intercepted every later click (page-size select, pagination "next"), which is
-  // why this scraper only ever got through page 1.
-  const btn = await page.$('button:has-text("Leisti visus slapukus")');
-  if (btn) await btn.click().catch(() => {});
+  // not English - fixed once already, but a second bug remained: this used to do a fixed
+  // 1s sleep then an immediate page.$() check, so on a slow-loading run the banner simply
+  // hadn't rendered yet, the check found nothing, and the banner stayed up - silently
+  // blocking every later click (pagination "next" included) for the rest of the run, which
+  // is exactly why runs kept finding page 1 and then stopping. waitForSelector actually
+  // waits for it to appear instead of guessing at a fixed delay, and waiting for the
+  // button to detach after clicking confirms the banner is genuinely gone before continuing.
+  const btn = await page
+    .waitForSelector('button:has-text("Leisti visus slapukus")', { timeout: 8000 })
+    .catch(() => null);
+  if (!btn) return;
+  await btn.click().catch(() => {});
+  await btn.waitForElementState('hidden', { timeout: 5000 }).catch(() => {});
 }
 
 async function setPageSizeTo50(page) {

@@ -10,8 +10,9 @@ generic enough for anyone.
 
 ## What it actually does, end to end
 
-Every night (and on demand), a fully automated pipeline runs on GitHub Actions and works through
-these stages in order:
+Every night (and on demand), a fully automated pipeline works through these stages in order —
+split across GitHub Actions and a small Oracle VPS (see "Why it's split this way" below for why
+one stage runs on the VPS instead):
 
 ### 1. Discover companies — `scraper/scrape.js`
 Scrapes the full startup table from [unicorns.lt](https://unicorns.lt/en/startups), paginating
@@ -33,7 +34,10 @@ or a plain address), for the cases where applying doesn't go through a form.
 ### 3. Scan the wider market — `scraper/external-jobs-scraper.js`
 Runs the same keyword matching directly against three more sources: **CVbankas.lt**, **CV.lt**,
 and **Užimtumo tarnyba** (the Lithuanian public employment service). Same matching logic, same
-requirement extraction, so results from every source are directly comparable.
+requirement extraction, so results from every source are directly comparable. Runs on the VPS
+(cron, `scraper/run-external-jobs-daily.sh`), not GitHub Actions — CVbankas intermittently blocks
+GitHub Actions' shared IP range (the same code found 24 matches on some runs, 0 on others, same
+day), and the VPS's IP isn't blocked.
 
 ### 4. Understand what each job actually needs — `scraper/ai.js`
 For every match, an AI call (OpenAI, `gpt-4o-mini`) reads the posting and extracts a short,
@@ -93,10 +97,16 @@ frontend/       React + Vite dashboard, guest mode, notifications, tier filters
 - **Firestore is the only shared state.** Every stage reads/writes Firestore, nothing talks to
   another stage directly. This means any stage can run anywhere (a laptop, a CI runner, a VPS)
   without the others knowing or caring.
-- **Scraping runs on GitHub Actions, not the always-on server.** Playwright + Chromium is heavy
-  and the VPS is meant to stay light (it just serves the frontend and a small API). GitHub
-  Actions runners are also x86_64, which matters because the VPS turned out to be ARM64 —
-  Playwright's Chromium doesn't support that combination at all, so this wasn't just a nice-to-have.
+- **Most scraping runs on GitHub Actions, not the always-on server**, to keep the VPS light (it
+  mainly serves the frontend and a small API) and because GitHub's runners are x86_64, which
+  matters since the VPS is ARM64 — Playwright's own bundled-Chromium download doesn't support that
+  combination. **One stage is the exception**: `scraper/external-jobs-scraper.js` and the CVbankas
+  quick-apply automation both run on the VPS instead, driving the system's snap-installed Chromium
+  via `playwright-core` with an explicit `executablePath` (`apt-get install chromium-browser` on
+  this Ubuntu image actually installs a real, working Chromium via snap — Playwright just can't
+  fetch its own). That's a deliberate exception, not a contradiction: those two need the VPS's own
+  IP and an already-authenticated CVbankas session, neither of which GitHub Actions' ephemeral
+  runners can offer.
 - **CVs are never pre-rendered and stored.** The backend renders a CV to PDF live, on request,
   from the JSON that's actually stored (either a tailored one or the base profile). There is
   nothing to go stale.
@@ -126,9 +136,12 @@ npm run scrape:external   # CVbankas / CV.lt / Užimtumo tarnyba
 npm run cv:generate       # tailor + queue CVs for every match
 ```
 
-Or let the whole thing run itself: the **Daily Scrape** GitHub Actions workflow runs all of the
-above (plus apply + inbox-check) every night at 22:00 UTC, and can be triggered manually with
-`gh workflow run "Daily Scrape"`.
+Or let the whole thing run itself: the **Daily Scrape** GitHub Actions workflow runs the
+unicorns.lt scrape, career-page matching, CV generation, applying, and inbox-check every night at
+22:00 UTC (`gh workflow run "Daily Scrape"` to trigger manually) — while a VPS cron job runs the
+external job board scrape (`scraper/run-external-jobs-daily.sh`) earlier in the evening, so its
+data is already in Firestore by the time CV generation reads it, and a separate VPS cron job runs
+the CVbankas quick-apply script (`cv-builder/quickapply/run-daily.sh`) afterward.
 
 ---
 
