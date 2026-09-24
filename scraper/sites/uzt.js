@@ -1,6 +1,14 @@
 const { matchText } = require('../match');
 const { extractRequirementsFromText } = require('../ai');
 
+// KNOWN ISSUE (2026-09-24): uzt.lt now sits behind a Cloudflare bot challenge ("Performing
+// security verification", HTTP 403) for both the Oracle VPS and GitHub Actions - confirmed
+// this is IP-reputation-based, not fingerprint detection: realistic User-Agent, patched
+// navigator.webdriver, and full headed mode via Xvfb all still get challenged identically
+// from the VPS's datacenter IP, while a real residential IP (a personal machine) loads the
+// real site with no challenge at all. Nothing in this file can fix that - it would need a
+// residential proxy. Until then, this will reliably return zero matches; that's expected,
+// not a regression. Decided to leave this as-is rather than add proxy infrastructure.
 const BASE_URL = 'https://uzt.lt/app/laisvos-darbo-vietos';
 const TITLE_SELECTOR = 'div[class*="font-semibold"][class*="text-lg"]';
 const MAX_PAGES = process.env.LIMIT ? 3 : 90; // ~3990 listings / 50 per page

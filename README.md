@@ -37,7 +37,11 @@ and **Užimtumo tarnyba** (the Lithuanian public employment service). Same match
 requirement extraction, so results from every source are directly comparable. Runs on the VPS
 (cron, `scraper/run-external-jobs-daily.sh`), not GitHub Actions — CVbankas intermittently blocks
 GitHub Actions' shared IP range (the same code found 24 matches on some runs, 0 on others, same
-day), and the VPS's IP isn't blocked.
+day), and the VPS's IP isn't blocked. **Užimtumo tarnyba currently returns zero matches** — the
+site added a Cloudflare bot challenge that blocks the VPS's datacenter IP specifically (not
+fingerprint-based: a real browser on a residential IP loads it fine, patched/headed automated
+Chromium on the VPS still gets challenged) — fixable only with a residential proxy, not attempted
+yet. See the comment in `scraper/sites/uzt.js` for the full diagnosis.
 
 ### 4. Understand what each job actually needs — `scraper/ai.js`
 For every match, an AI call (OpenAI, `gpt-4o-mini`) reads the posting and extracts a short,
